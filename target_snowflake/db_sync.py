@@ -32,8 +32,7 @@ def validate_config(config):
     snowflake_required_config_keys = [
         'account',
         'dbname',
-        'user',
-        'password',
+        'authenticator',
         'warehouse',
         'file_format'
     ]
@@ -291,23 +290,43 @@ class DbSync:
         if self.stream_schema_message:
             stream = self.stream_schema_message['stream']
 
-        return snowflake.connector.connect(
-            user=self.connection_config['user'],
-            password=self.connection_config['password'],
-            account=self.connection_config['account'],
-            database=self.connection_config['dbname'],
-            warehouse=self.connection_config['warehouse'],
-            role=self.connection_config.get('role', None),
-            autocommit=True,
-            session_parameters={
-                # Quoted identifiers should be case sensitive
-                'QUOTED_IDENTIFIERS_IGNORE_CASE': 'FALSE',
-                'QUERY_TAG': create_query_tag(self.connection_config.get('query_tag'),
-                                              database=self.connection_config['dbname'],
-                                              schema=self.schema_name,
-                                              table=self.table_name(stream, False, True))
-            }
-        )
+        if self.connection_config['authenticator'] == 'externalbrowser':
+            con = snowflake.connector.connect(
+                authenticator=self.connection_config['authenticator'],
+                account=self.connection_config['account'],
+                database=self.connection_config['dbname'],
+                warehouse=self.connection_config['warehouse'],
+                role=self.connection_config.get('role', None),
+                autocommit=True,
+                session_parameters={
+                    # Quoted identifiers should be case sensitive
+                    'QUOTED_IDENTIFIERS_IGNORE_CASE': 'FALSE',
+                    'QUERY_TAG': create_query_tag(self.connection_config.get('query_tag'),
+                                                database=self.connection_config['dbname'],
+                                                schema=self.schema_name,
+                                                table=self.table_name(stream, False, True))
+                }
+            )
+        else:
+            con = snowflake.connector.connect(
+                user=self.connection_config['user'],
+                password=self.connection_config['password'],
+                account=self.connection_config['account'],
+                database=self.connection_config['dbname'],
+                warehouse=self.connection_config['warehouse'],
+                role=self.connection_config.get('role', None),
+                autocommit=True,
+                session_parameters={
+                    # Quoted identifiers should be case sensitive
+                    'QUOTED_IDENTIFIERS_IGNORE_CASE': 'FALSE',
+                    'QUERY_TAG': create_query_tag(self.connection_config.get('query_tag'),
+                                                database=self.connection_config['dbname'],
+                                                schema=self.schema_name,
+                                                table=self.table_name(stream, False, True))
+                }
+            )
+
+        return con
 
     def query(self, query: Union[str, List[str]], params: Dict = None, max_records=0) -> List[Dict]:
         """Run an SQL query in snowflake"""
